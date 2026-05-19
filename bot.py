@@ -41,6 +41,7 @@ def _parse_admin_group(value: str | None):
 
 
 ADMIN_GROUP_ID = _parse_admin_group(os.getenv("ADMIN_GROUP_ID"))
+SKIP_SUBSCRIPTION_CHECK = os.getenv("SKIP_SUBSCRIPTION_CHECK", "0") == "1"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -94,6 +95,8 @@ def phone_kb() -> ReplyKeyboardMarkup:
 
 
 async def is_subscribed(bot: Bot, user_id: int) -> bool:
+    if SKIP_SUBSCRIPTION_CHECK:
+        return True
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
         return member.status in ("member", "administrator", "creator")
@@ -173,8 +176,8 @@ async def get_phone(message: Message, state: FSMContext):
     await state.update_data(phone=message.contact.phone_number)
     await state.set_state(Form.file)
     await message.answer(
-        "4️⃣ <b>Loyiha faylingizni</b> (pitch deck, taqdimot, hujjat) yuboring.\n\n"
-        "Istalgan formatdagi fayl qabul qilinadi.",
+        "4️⃣ <b>Loyiha faylingizni</b> (pitch deck, taqdimot, hujjat yoki rasm) yuboring.\n\n"
+        "Hujjat (PDF, DOCX, PPTX...) yoki rasm — istalgan formatda qabul qilinadi.",
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -187,10 +190,18 @@ async def phone_invalid(message: Message):
     )
 
 
-@router.message(Form.file, F.document)
+@router.message(Form.file, F.document | F.photo)
 async def get_file(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
-    doc = message.document
+
+    if message.document:
+        file_id = message.document.file_id
+        file_name = message.document.file_name or "fayl"
+        is_photo = False
+    else:
+        file_id = message.photo[-1].file_id
+        file_name = "rasm.jpg"
+        is_photo = True
 
     payload = {
         "user_id": message.from_user.id,
@@ -198,7 +209,7 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
         "full_name": data.get("full_name", ""),
         "startup_name": data.get("startup_name", ""),
         "phone": data.get("phone", ""),
-        "file_name": doc.file_name or "fayl",
+        "file_name": file_name,
         "file_link": "",
     }
 
@@ -213,11 +224,11 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
             "💬 <i>Bu xabarga reply qilib javob yozsangiz — foydalanuvchiga yuboriladi.</i>"
         )
         sent_msg = await bot.send_message(ADMIN_GROUP_ID, admin_text)
-        sent = await bot.send_document(
-            ADMIN_GROUP_ID,
-            doc.file_id,
-            caption=f"📎 {payload['full_name']} — {payload['startup_name']}",
-        )
+        caption = f"📎 {payload['full_name']} — {payload['startup_name']}"
+        if is_photo:
+            sent = await bot.send_photo(ADMIN_GROUP_ID, file_id, caption=caption)
+        else:
+            sent = await bot.send_document(ADMIN_GROUP_ID, file_id, caption=caption)
         _remember(sent_msg.message_id, payload["user_id"])
         _remember(sent.message_id, payload["user_id"])
         if sent.chat.username:
@@ -243,7 +254,7 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
 
 @router.message(Form.file)
 async def file_invalid(message: Message):
-    await message.answer("Iltimos, loyiha faylini hujjat (document) sifatida yuboring.")
+    await message.answer("Iltimos, hujjat (document) yoki rasm yuboring.")
 
 
 @router.message(F.reply_to_message)
