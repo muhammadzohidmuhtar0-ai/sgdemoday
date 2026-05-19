@@ -76,6 +76,17 @@ class Form(StatesGroup):
     file = State()
 
 
+def decision_kb(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Qabul qilindi", callback_data=f"dec:a:{user_id}"),
+                InlineKeyboardButton(text="❌ Rad etildi", callback_data=f"dec:r:{user_id}"),
+            ]
+        ]
+    )
+
+
 def subscribe_kb() -> InlineKeyboardMarkup:
     channel_link = f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}"
     return InlineKeyboardMarkup(
@@ -223,7 +234,11 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
             f"(<code>{payload['user_id']}</code>)\n\n"
             "💬 <i>Bu xabarga reply qilib javob yozsangiz — foydalanuvchiga yuboriladi.</i>"
         )
-        sent_msg = await bot.send_message(ADMIN_GROUP_ID, admin_text)
+        sent_msg = await bot.send_message(
+            ADMIN_GROUP_ID,
+            admin_text,
+            reply_markup=decision_kb(payload["user_id"]),
+        )
         caption = f"📎 {payload['full_name']} — {payload['startup_name']}"
         if is_photo:
             sent = await bot.send_photo(ADMIN_GROUP_ID, file_id, caption=caption)
@@ -255,6 +270,53 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
 @router.message(Form.file)
 async def file_invalid(message: Message):
     await message.answer("Iltimos, hujjat (document) yoki rasm yuboring.")
+
+
+@router.callback_query(F.data.startswith("dec:"))
+async def handle_decision(callback: CallbackQuery, bot: Bot):
+    if admin_group_chat_id is None or callback.message.chat.id != admin_group_chat_id:
+        await callback.answer("Bu tugma faqat admin guruhda ishlaydi.", show_alert=True)
+        return
+    try:
+        _, action, uid = callback.data.split(":")
+        user_id = int(uid)
+    except (ValueError, AttributeError):
+        await callback.answer("Tugma ma'lumotlari noto'g'ri.", show_alert=True)
+        return
+
+    if action == "a":
+        user_msg = (
+            "🎉 <b>Tabriklaymiz!</b>\n\n"
+            "Sizning arizangiz <b>qabul qilindi</b>. "
+            "Keyingi bosqichlar haqida tez orada xabar beramiz.\n\n"
+            "Startup Garage jamoasi 🚀"
+        )
+        marker = "✅ <b>QABUL QILINDI</b>"
+        toast = "Qabul qilindi va foydalanuvchiga xabar yuborildi"
+    else:
+        user_msg = (
+            "Hurmatli ishtirokchi,\n\n"
+            "Sizning arizangiz ko'rib chiqildi. Afsuski, bu safar saralash bosqichidan o'tmadingiz.\n\n"
+            "Ishtirokingiz uchun rahmat — kelajakdagi loyihalaringizga omad tilaymiz.\n\n"
+            "Startup Garage jamoasi"
+        )
+        marker = "❌ <b>RAD ETILDI</b>"
+        toast = "Rad etildi va foydalanuvchiga xabar yuborildi"
+
+    try:
+        await bot.send_message(user_id, user_msg)
+    except Exception as e:
+        logger.exception("Decision relay error: %s", e)
+        await callback.answer(f"Xato: yuborib bo'lmadi ({e})", show_alert=True)
+        return
+
+    who = callback.from_user.username or callback.from_user.full_name
+    new_text = callback.message.html_text + f"\n\n{marker} — {who}"
+    try:
+        await callback.message.edit_text(new_text, reply_markup=None)
+    except TelegramBadRequest:
+        pass
+    await callback.answer(toast)
 
 
 @router.message(F.reply_to_message)
