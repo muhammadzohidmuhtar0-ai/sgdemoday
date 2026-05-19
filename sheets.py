@@ -18,7 +18,10 @@ HEADERS = [
     "Startup nomi",
     "Telefon",
     "Loyiha fayli",
+    "Holati",
 ]
+
+STATUS_COL = len(HEADERS)
 
 _COMMA_DECIMAL_LANGS = {
     "ru", "de", "fr", "es", "it", "nl", "pt", "pl", "cs",
@@ -59,7 +62,7 @@ def _formula_sep(sh: gspread.Spreadsheet) -> str:
     return ";" if lang in _COMMA_DECIMAL_LANGS else ","
 
 
-def append_application(data: dict) -> None:
+def append_application(data: dict) -> int:
     ws = _worksheet()
     file_name = (data.get("file_name", "") or "fayl").replace('"', "'")
     file_link = data.get("file_link", "")
@@ -78,5 +81,17 @@ def append_application(data: dict) -> None:
         data.get("startup_name", ""),
         data.get("phone", ""),
         file_cell,
+        "",
     ]
-    ws.append_row(row, value_input_option="USER_ENTERED")
+    resp = ws.append_row(row, value_input_option="USER_ENTERED")
+    updated = resp.get("updates", {}).get("updatedRange", "")
+    try:
+        row_num = int("".join(c for c in updated.split("!")[-1].split(":")[0] if c.isdigit()))
+    except (ValueError, IndexError):
+        row_num = len(ws.get_all_values())
+    return row_num
+
+
+def update_status(row: int, status: str) -> None:
+    ws = _worksheet()
+    ws.update_cell(row, STATUS_COL, status)

@@ -76,12 +76,12 @@ class Form(StatesGroup):
     file = State()
 
 
-def decision_kb(user_id: int) -> InlineKeyboardMarkup:
+def decision_kb(user_id: int, sheet_row: int = 0) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Qabul qilindi", callback_data=f"dec:a:{user_id}"),
-                InlineKeyboardButton(text="❌ Rad etildi", callback_data=f"dec:r:{user_id}"),
+                InlineKeyboardButton(text="✅ Qabul qilindi", callback_data=f"dec:a:{user_id}:{sheet_row}"),
+                InlineKeyboardButton(text="❌ Rad etildi", callback_data=f"dec:r:{user_id}:{sheet_row}"),
             ]
         ]
     )
@@ -224,6 +224,28 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
         "file_link": "",
     }
 
+    admin_msg_id = None
+    try:
+        caption = f"📎 {payload['full_name']} — {payload['startup_name']}"
+        if is_photo:
+            sent = await bot.send_photo(ADMIN_GROUP_ID, file_id, caption=caption)
+        else:
+            sent = await bot.send_document(ADMIN_GROUP_ID, file_id, caption=caption)
+        _remember(sent.message_id, payload["user_id"])
+        if sent.chat.username:
+            payload["file_link"] = f"https://t.me/{sent.chat.username}/{sent.message_id}"
+        else:
+            chat_id_str = str(sent.chat.id).replace("-100", "", 1)
+            payload["file_link"] = f"https://t.me/c/{chat_id_str}/{sent.message_id}"
+    except Exception as e:
+        logger.exception("Admin group file send error: %s", e)
+
+    sheet_row = 0
+    try:
+        sheet_row = await asyncio.to_thread(sheets.append_application, payload)
+    except Exception as e:
+        logger.exception("Google Sheets error: %s", e)
+
     try:
         admin_text = (
             "🆕 <b>Yangi ariza</b>\n\n"
@@ -237,27 +259,12 @@ async def get_file(message: Message, state: FSMContext, bot: Bot):
         sent_msg = await bot.send_message(
             ADMIN_GROUP_ID,
             admin_text,
-            reply_markup=decision_kb(payload["user_id"]),
+            reply_markup=decision_kb(payload["user_id"], sheet_row),
         )
-        caption = f"📎 {payload['full_name']} — {payload['startup_name']}"
-        if is_photo:
-            sent = await bot.send_photo(ADMIN_GROUP_ID, file_id, caption=caption)
-        else:
-            sent = await bot.send_document(ADMIN_GROUP_ID, file_id, caption=caption)
         _remember(sent_msg.message_id, payload["user_id"])
-        _remember(sent.message_id, payload["user_id"])
-        if sent.chat.username:
-            payload["file_link"] = f"https://t.me/{sent.chat.username}/{sent.message_id}"
-        else:
-            chat_id_str = str(sent.chat.id).replace("-100", "", 1)
-            payload["file_link"] = f"https://t.me/c/{chat_id_str}/{sent.message_id}"
+        admin_msg_id = sent_msg.message_id
     except Exception as e:
-        logger.exception("Admin group send error: %s", e)
-
-    try:
-        await asyncio.to_thread(sheets.append_application, payload)
-    except Exception as e:
-        logger.exception("Google Sheets error: %s", e)
+        logger.exception("Admin group text send error: %s", e)
 
     await state.clear()
     await message.answer(
@@ -277,10 +284,15 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
     if admin_group_chat_id is None or callback.message.chat.id != admin_group_chat_id:
         await callback.answer("Bu tugma faqat admin guruhda ishlaydi.", show_alert=True)
         return
+    parts = (callback.data or "").split(":")
+    if len(parts) < 3:
+        await callback.answer("Tugma ma'lumotlari noto'g'ri.", show_alert=True)
+        return
+    action = parts[1]
     try:
-        _, action, uid = callback.data.split(":")
-        user_id = int(uid)
-    except (ValueError, AttributeError):
+        user_id = int(parts[2])
+        sheet_row = int(parts[3]) if len(parts) > 3 else 0
+    except ValueError:
         await callback.answer("Tugma ma'lumotlari noto'g'ri.", show_alert=True)
         return
 
@@ -292,6 +304,7 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
             "Startup Garage jamoasi 🚀"
         )
         marker = "✅ <b>QABUL QILINDI</b>"
+        status_text = "✅ Qabul qilindi"
         toast = "Qabul qilindi va foydalanuvchiga xabar yuborildi"
     else:
         user_msg = (
@@ -301,6 +314,7 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
             "Startup Garage jamoasi"
         )
         marker = "❌ <b>RAD ETILDI</b>"
+        status_text = "❌ Rad etildi"
         toast = "Rad etildi va foydalanuvchiga xabar yuborildi"
 
     try:
@@ -309,6 +323,12 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
         logger.exception("Decision relay error: %s", e)
         await callback.answer(f"Xato: yuborib bo'lmadi ({e})", show_alert=True)
         return
+
+    if sheet_row:
+        try:
+            await asyncio.to_thread(sheets.update_status, sheet_row, status_text)
+        except Exception as e:
+            logger.exception("Sheets status update error: %s", e)
 
     who = callback.from_user.username or callback.from_user.full_name
     new_text = callback.message.html_text + f"\n\n{marker} — {who}"
