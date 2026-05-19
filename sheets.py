@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 
@@ -27,10 +28,17 @@ _COMMA_DECIMAL_LANGS = {
 _locale_cache: str | None = None
 
 
-def _client() -> gspread.Client:
+def _load_credentials() -> Credentials:
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        info = json.loads(creds_json)
+        return Credentials.from_service_account_info(info, scopes=SCOPES)
     creds_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
-    creds = Credentials.from_service_account_file(creds_file, scopes=SCOPES)
-    return gspread.authorize(creds)
+    return Credentials.from_service_account_file(creds_file, scopes=SCOPES)
+
+
+def _client() -> gspread.Client:
+    return gspread.authorize(_load_credentials())
 
 
 def _worksheet() -> gspread.Worksheet:

@@ -1,4 +1,5 @@
 import io
+import json
 import os
 
 from google.oauth2.service_account import Credentials
@@ -8,10 +9,17 @@ from googleapiclient.http import MediaIoBaseUpload
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
-def _service():
+def _load_credentials() -> Credentials:
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        info = json.loads(creds_json)
+        return Credentials.from_service_account_info(info, scopes=SCOPES)
     creds_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
-    creds = Credentials.from_service_account_file(creds_file, scopes=SCOPES)
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
+    return Credentials.from_service_account_file(creds_file, scopes=SCOPES)
+
+
+def _service():
+    return build("drive", "v3", credentials=_load_credentials(), cache_discovery=False)
 
 
 def upload_file(content: bytes, filename: str, mime_type: str | None = None) -> str:
