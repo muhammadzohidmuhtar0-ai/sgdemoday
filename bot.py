@@ -298,24 +298,27 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
 
     if action == "a":
         user_msg = (
-            "🎉 <b>Tabriklaymiz!</b>\n\n"
-            "Sizning arizangiz <b>qabul qilindi</b>. "
-            "Keyingi bosqichlar haqida tez orada xabar beramiz.\n\n"
-            "👇 Quyidagi guruhga qo'shiling:\n"
-            "https://t.me/+biccC2_iLxc4YWY6\n\n"
-            "Startup Garage jamoasi 🚀"
+            "<b>Tabriklaymiz!</b> 🎉\n\n"
+            "Sizning startup loyihangiz Startup Garage Grand Demo Day uchun "
+            "muvaffaqiyatli saralab olindi va rasmiy ravishda qabul qilindi.\n\n"
+            "👇 Quyidagi yopiq guruhga qo'shiling:\n"
+            "https://t.me/+biccC2_iLxc4YWY6"
         )
         marker = "✅ <b>QABUL QILINDI</b>"
         status_text = "✅ Qabul qilindi"
         toast = "Qabul qilindi va foydalanuvchiga xabar yuborildi"
     else:
         user_msg = (
-            "Hurmatli ishtirokchi,\n\n"
-            "Sizning arizangiz ko'rib chiqildi. Afsuski, bu safar saralash bosqichidan o'tmadingiz.\n\n"
-            "Lekin Demo Day'ga tayyorlanish uchun quyidagi guruhga qo'shilishingiz mumkin:\n"
-            "https://t.me/+3uWPvVYOYo5mZDUy\n\n"
-            "Ishtirokingiz uchun rahmat — kelajakdagi loyihalaringizga omad tilaymiz.\n\n"
-            "Startup Garage jamoasi"
+            "Assalomu alaykum!\n\n"
+            "Startup loyihangiz uchun rahmat. Hozircha loyihangiz Startup Garage "
+            "Grand Demo Day uchun asosiy saralashdan o'ta olmadi.\n\n"
+            "Biroq, loyihangizda potensial mavjudligi sababli, sizni maxsus "
+            "tayyorlov yopiq guruhiga taklif qilamiz. Ushbu guruhda mentorlar va "
+            "ekspertlar yordamida loyihangizni rivojlantirish, kamchiliklarni "
+            "to'g'rilash va keyingi Demo Day'larga tayyorlanish imkoniyatiga "
+            "ega bo'lasiz. 🚀\n\n"
+            "👇 Quyidagi guruhga qo'shiling:\n"
+            "https://t.me/+3uWPvVYOYo5mZDUy"
         )
         marker = "❌ <b>RAD ETILDI</b>"
         status_text = "❌ Rad etildi"
