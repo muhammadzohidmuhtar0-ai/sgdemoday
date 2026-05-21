@@ -301,6 +301,8 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
             "🎉 <b>Tabriklaymiz!</b>\n\n"
             "Sizning arizangiz <b>qabul qilindi</b>. "
             "Keyingi bosqichlar haqida tez orada xabar beramiz.\n\n"
+            "👇 Quyidagi guruhga qo'shiling:\n"
+            "https://t.me/+biccC2_iLxc4YWY6\n\n"
             "Startup Garage jamoasi 🚀"
         )
         marker = "✅ <b>QABUL QILINDI</b>"
@@ -310,6 +312,8 @@ async def handle_decision(callback: CallbackQuery, bot: Bot):
         user_msg = (
             "Hurmatli ishtirokchi,\n\n"
             "Sizning arizangiz ko'rib chiqildi. Afsuski, bu safar saralash bosqichidan o'tmadingiz.\n\n"
+            "Lekin Demo Day'ga tayyorlanish uchun quyidagi guruhga qo'shilishingiz mumkin:\n"
+            "https://t.me/+3uWPvVYOYo5mZDUy\n\n"
             "Ishtirokingiz uchun rahmat — kelajakdagi loyihalaringizga omad tilaymiz.\n\n"
             "Startup Garage jamoasi"
         )
